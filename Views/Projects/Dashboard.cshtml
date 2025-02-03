@@ -1,0 +1,120 @@
+﻿@model List<DTH.App.Models.HomeProjectViewModel>
+
+@{
+	ViewData["Title"] = "Project Overview";
+	var notStartedCount = Model.Count(p => p.ProjectStatus == "NotStarted");
+	var inProgressCount = Model.Count(p => p.ProjectStatus == "InProgress");
+	var completedCount = Model.Count(p => p.ProjectStatus == "Completed");
+}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+
+<div class="container mt-5">
+	<h2 class="mb-4">Project Dashboard</h2>
+
+	<a href="@Url.Action("Create", "Projects")" class="btn btn-primary mb-3">Create New Project</a>
+
+	<div id="projectStatus" class="border border-info p-2 rounded mb-4">
+		<h4 class="mb-2">Project Status Count:</h4>
+		<p>Not Started: @notStartedCount | In Progress: @inProgressCount | Completed: @completedCount</p>
+	</div>
+
+	<table class="table table-bordered table-striped table-hover" id="projectsTable">
+		<thead class="table-hover table-secondary">
+			<tr>
+				<th>Project ID</th>
+				<th>Project Name</th>
+				<th>Client Name</th>
+				<th>Street Address</th>
+				<th>Start Date</th>
+				<th>Estimated Completion</th>
+				<th>Status</th>
+				<th>Budget</th>
+				<th>Actions</th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var project in Model)
+			{
+				<tr data-id="@project.ProjectId">
+					<td>@project.ProjectId</td>
+					<td>@project.ProjectName</td>
+					<td>@project.ClientName</td>
+					<td>@project.StreetAddress</td>
+					<td>@project.StartDate?.ToString("MM/dd/yyyy")</td>
+					<td>@project.EstimatedCompletionDate?.ToString("MM/dd/yyyy")</td>
+					<td>@project.ProjectStatus</td>
+					<td>@project.Budget?.ToString("C")</td>
+					<td>
+						<div class="d-flex gap-2">
+							<button class="btn btn-outline-primary btn-sm edit-btn">Edit</button>
+							<button class="btn btn-danger btn-sm delete-btn">Delete</button>
+						</div>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+	$(document).ready(function () {
+		var table = $('#projectsTable').DataTable({
+			paging: true,
+			searching: true,
+			ordering: true,
+			info: true,
+			lengthChange: true,
+			pageLength: 10,
+			lengthMenu: [5, 10, 25, 50],
+			pagingType: 'simple',
+			language: {
+				searchPlaceholder: 'Search projects...',
+				paginate: {
+					previous: "Prev",
+					next: "Next"
+				}
+			}
+		});
+
+		$('#projectsTable tbody').on('click', '.edit-btn', function (e) {
+			e.stopPropagation();
+			var projectId = $(this).closest('tr').data('id');
+
+			console.log("Project ID:", projectId);
+
+			if (projectId) {
+				window.location.href = '/Projects/Update/' + projectId;
+			} else {
+				alert("Project ID is missing.");
+			}
+		});
+
+		$('#projectsTable tbody').on('click', '.delete-btn', function (e) {
+			e.stopPropagation();
+			var projectId = $(this).closest('tr').data('id');
+
+			if (confirm("Are you sure you want to delete Project ID:" + projectId)) {
+				$.ajax({
+					url: '/Projects/Delete',
+					type: 'DELETE',
+					contentType: 'application/json',
+					data: JSON.stringify(projectId),
+					success: function (result) {
+						alert('Project deleted successfully.');
+						location.reload();
+					},
+					error: function () {
+						alert('Error deleting project.');
+					}
+				});
+			}
+		});
+	});
+</script>

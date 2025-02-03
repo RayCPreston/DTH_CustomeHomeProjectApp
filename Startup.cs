@@ -1,8 +1,7 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using System.Text.Json;
+using DTH.App.Delegates;
+using DTH.App.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace DTH.App
 {
@@ -15,35 +14,68 @@ namespace DTH.App
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddRazorPages();
-            services.AddServerSideBlazor();
+            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie(options =>
+                {
+                    options.LoginPath = "/Account/Login"; // Redirect to login if unauthorized
+                    options.AccessDeniedPath = "/Account/Login";
+                });
+            services.AddAuthorization();
+            services.AddSession();
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+            services.AddTransient<BasicAuthHandler>();
+            services.AddLogging();
+            services.AddControllersWithViews();
+            services.AddHttpClient("user-client", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:7129/dth/users/v1.0/");
+            })
+                .AddHttpMessageHandler<BasicAuthHandler>();
+            services.AddHttpClient("homeproject-client", client =>
+            {
+                client.BaseAddress = new Uri("https://localhost:7129/dth/homeprojects/v1.0/");
+            })
+                .AddHttpMessageHandler<BasicAuthHandler>();
+            services.AddScoped<HomeProjectClientRequestService>();
+            services.AddScoped<HomeProjectsRestService>();
+            JsonSerializerOptions jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            };
+            services.AddSingleton(jsonOptions);
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {
+                app.UseExceptionHandler("/HomeProject/Error");
                 app.UseDeveloperExceptionPage();
             }
             else
             {
-                app.UseExceptionHandler("/Error");
+                app.UseExceptionHandler("/HomeProject/Error");
                 app.UseHsts();
             }
+
+            app.UseAuthentication();
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
 
+            app.UseSession();
             app.UseRouting();
+
+            app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapBlazorHub();
-                endpoints.MapFallbackToPage("/_Host");
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
             });
         }
     }
